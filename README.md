@@ -32,8 +32,9 @@ AutoApply searches LinkedIn and Indeed, scores each job against your preferences
 
 ```bash
 # 1. Clone and set up
-git clone https://github.com/AbhishekMandapmalvi/AutoApply.git
+git clone https://github.com/josebautista2020/AutoApply.git
 cd AutoApply
+git switch feature/executive-global-search
 python -m venv venv
 venv\Scripts\activate        # Windows
 source venv/bin/activate     # macOS/Linux
