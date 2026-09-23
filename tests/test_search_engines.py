@@ -697,8 +697,12 @@ class TestLinkedInApplier:
         fi = MagicMock()
         page.query_selector.return_value = fi
         applier = LinkedInApplier(page)
-        applier._upload_resume(Path("/tmp/resume.pdf"))
-        fi.set_input_files.assert_called_once()
+        uploaded = applier._safe_upload(Path("/tmp/resume.pdf"), [
+            "input[type='file'][name*='resume']",
+            "input[type='file']",
+        ])
+        assert uploaded is True
+        fi.set_input_files.assert_called_once_with("/tmp/resume.pdf")
 
     @patch("bot.apply.base.time.sleep")
     def test_fill_cover_letter(self, _sleep):

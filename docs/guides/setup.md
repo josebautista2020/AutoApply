@@ -3,7 +3,7 @@
 ## What You Need
 
 - **Python 3.11 or newer** — [Download from python.org](https://python.org/downloads/)
-- **Node.js 18+** — [Download](https://nodejs.org)
+- **System webview for desktop mode** — Edge WebView2 on Windows, or WebKit on macOS/Linux
 - **AI API key** (optional) — For AI-generated resumes and cover letters. Supports Anthropic, OpenAI, Google, or DeepSeek. Configure in Settings → AI Provider.
 
 Without an API key, AutoApply still works — it just uses generic templates instead of tailored documents.
@@ -19,18 +19,17 @@ venv\Scripts\activate
 # macOS/Linux:
 source venv/bin/activate
 
-python setup_env.py
+python -m pip install -e .
 
 # Install Playwright's Chromium browser (required for job searching/applying)
-playwright install chromium
+python -m playwright install chromium
 
-# Launch the desktop app
-cd electron
-npm install
-npm start
+# Launch the PyWebView desktop app
+python run.py --gui
 ```
 
-A native app window opens with the dashboard.
+A native app window opens with the dashboard. For browser-only use, run
+`python run.py` and open the local URL printed by the server.
 
 ## First Launch: Setup Wizard
 
