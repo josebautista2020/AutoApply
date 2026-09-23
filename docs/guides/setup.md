@@ -88,6 +88,26 @@ These are signals about the *role*, not evidence that the applicant meets its
 requirements; verify the CV and original posting before approval. The setting
 is opt-in, so existing scoring remains unchanged.
 
+## Import a private profile
+
+Keep personal configuration, experience and CV files outside the public Git
+repository. After downloading them to one directory on your computer, run
+the importer from the repository checkout (substitute your filenames):
+
+```bash
+python scripts/import_profile.py --config private/config.json --resume private/resume.pdf --experience private/experience.md --dry-run
+python scripts/import_profile.py --config private/config.json --resume private/resume.pdf --experience private/experience.md
+```
+
+The importer validates configuration, copies the CV to
+`~/.autoapply/default_resume.pdf`, writes experience text under
+`~/.autoapply/profile/experiences/`, and sets an absolute fallback CV path.
+It forces Review mode and disables the schedule. If any destination file
+already exists, the command stops; use `--replace` to make a dated backup
+under `~/.autoapply/backups/` before replacing those files. Run the command
+with AutoApply stopped, then verify your settings in the dashboard. This
+does not log into job sites or submit applications.
+
 ## Log Into Your Job Platforms
 
 This step is important. AutoApply uses a real browser to search and apply, so it needs your login sessions.
