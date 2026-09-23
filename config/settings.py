@@ -110,6 +110,9 @@ class SearchCriteria(BaseModel):
     # Opt-in international search. Each country is queried separately; a listing
     # must name one of these countries before it can enter the review queue.
     target_countries: list[str] = []
+    # Opt-in ranking for senior leadership and architecture roles. Vacancies
+    # receive points for signals in the posting, not for assumed CV claims.
+    executive_mode: bool = False
     # Applicant's status for each target country. Unknown is intentionally the
     # default; the location of a vacancy is not proof of work eligibility.
     work_authorization: dict[

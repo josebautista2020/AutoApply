@@ -56,6 +56,7 @@ To search specific countries, add `target_countries` to `search_criteria` in
   "locations": ["Remote"],
   "target_countries": ["United States", "Spain", "Panama", "Colombia"],
   "work_authorization": {"United States": "needs_sponsorship"},
+  "executive_mode": true,
   "remote_only": false
 }
 ```
@@ -78,6 +79,14 @@ support and remote location limits against the original posting. This is a
 screening aid, not a visa determination. Do not set a global Work Authorization
 answer in the setup wizard for a multi-country campaign; the same answer may
 be false in another country.
+
+With `executive_mode`, ranking allocates up to 35 points to the title, 20 to
+location, 25 to leadership terms and 20 to architecture terms in the posting.
+The review card shows the terms that contributed to the score. Missing salary
+information earns no points and salary is not compared across currencies.
+These are signals about the *role*, not evidence that the applicant meets its
+requirements; verify the CV and original posting before approval. The setting
+is opt-in, so existing scoring remains unchanged.
 
 ## Log Into Your Job Platforms
 

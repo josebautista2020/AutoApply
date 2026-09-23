@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -30,6 +30,7 @@ class ScoredJob:
     pass_filter: bool
     skip_reason: str | None
     eligibility_note: str | None = None
+    priority_reasons: list[str] = field(default_factory=list)
 
 
 # ATS fingerprints for URL-based detection
@@ -97,6 +98,60 @@ def _eligibility(job: "RawJob", criteria) -> tuple[bool, str]:
     if status == "authorized":
         return True, f"{country}: applicant reports authorization; confirm role restrictions"
     return True, f"{country}: work authorization unverified; check before applying"
+
+
+_LEADERSHIP_SIGNALS = (
+    "lead", "manage", "team", "strategy", "roadmap", "stakeholder",
+    "budget", "governance", "mentor", "organizational",
+)
+_ARCHITECTURE_SIGNALS = (
+    "architecture", "cloud", "platform", "infrastructure", "migration",
+    "devsecops", "kubernetes", "resilience", "security", "saas",
+)
+
+
+def _matching_signals(description: str, terms: tuple[str, ...], limit: int) -> list[str]:
+    """Count distinct whole-word role signals from the original posting."""
+    return [term for term in terms if re.search(rf"\b{re.escape(term)}\b", description)][:limit]
+
+
+def _score_executive(raw_job: "RawJob", criteria) -> tuple[int, list[str]]:
+    """Prioritize executive postings with explicit role scope; no salary guesses."""
+    title = raw_job.title.casefold()
+    reasons: list[str] = []
+    title_points = 0
+    for target in criteria.job_titles:
+        target_lower = target.casefold()
+        if target_lower in title:
+            title_points = 35
+            reasons.append(f"Title: {target} (35)")
+            break
+        target_words = set(target_lower.split())
+        if target_words and len(target_words & set(title.split())) >= len(target_words) * 0.5:
+            title_points = 20
+    if title_points == 20:
+        reasons.append("Title: partial overlap (20)")
+
+    location_points = 0
+    if criteria.remote_only:
+        if "remote" in raw_job.location.casefold():
+            location_points = 20
+    elif criteria.target_countries:
+        if _confirmed_country(raw_job.location, criteria.target_countries):
+            location_points = 20
+    elif any(loc.casefold() in raw_job.location.casefold() for loc in criteria.locations):
+        location_points = 20
+    if location_points:
+        reasons.append(f"Location: {raw_job.location} (20)")
+
+    description = raw_job.description.casefold()
+    leadership = _matching_signals(description, _LEADERSHIP_SIGNALS, 5)
+    architecture = _matching_signals(description, _ARCHITECTURE_SIGNALS, 4)
+    if leadership:
+        reasons.append(f"Leadership scope: {', '.join(leadership)} ({len(leadership) * 5})")
+    if architecture:
+        reasons.append(f"Technical scope: {', '.join(architecture)} ({len(architecture) * 5})")
+    return title_points + location_points + len(leadership) * 5 + len(architecture) * 5, reasons
 
 
 def score_job(
@@ -172,6 +227,17 @@ def score_job(
                 pass_filter=False,
                 skip_reason=eligibility_note,
             )
+
+    # --- Executive prioritization ---
+    if getattr(criteria, "executive_mode", False) is True:
+        score, reasons = _score_executive(raw_job, criteria)
+        threshold = config.bot.min_match_score
+        passed = score >= threshold
+        return ScoredJob(
+            id=job_id, raw=raw_job, score=score, pass_filter=passed,
+            skip_reason=None if passed else f"Score {score} below threshold {threshold}",
+            eligibility_note=eligibility_note, priority_reasons=reasons,
+        )
 
     # --- Scoring ---
 

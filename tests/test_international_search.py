@@ -87,6 +87,42 @@ def test_authorization_keys_must_match_target_countries():
         )
 
 
+def test_executive_ranking_explains_role_signals_without_salary_bonus():
+    cfg = _config(["Spain"])
+    cfg.search_criteria.executive_mode = True
+    job = _job("Madrid, Spain")
+    job.description = (
+        "Lead teams and strategy, own the roadmap, budget and governance. "
+        "Architecture across cloud, platform and infrastructure."
+    )
+    result = score_job(job, cfg)
+    assert result.pass_filter
+    assert result.score == 100
+    assert any("Leadership scope" in reason for reason in result.priority_reasons)
+    assert any("Technical scope" in reason for reason in result.priority_reasons)
+
+
+def test_executive_ranking_rejects_thin_posting_at_same_threshold():
+    cfg = _config(["Spain"])
+    cfg.search_criteria.executive_mode = True
+    job = _job("Madrid, Spain")
+    job.description = "Apply now."
+    result = score_job(job, cfg)
+    assert result.score == 55
+    assert not result.pass_filter
+    assert result.skip_reason == "Score 55 below threshold 70"
+
+
+def test_executive_ranking_does_not_count_substrings_as_signals():
+    cfg = _config(["Spain"])
+    cfg.search_criteria.executive_mode = True
+    job = _job("Madrid, Spain")
+    job.description = "Cloudberry products and teamster culture."
+    result = score_job(job, cfg)
+    assert result.score == 55
+    assert not result.pass_filter
+
+
 def test_country_target_does_not_confuse_panama_city_with_country():
     result = score_job(_job("Panama City, Florida"), _config(["Panama"]))
     assert not result.pass_filter

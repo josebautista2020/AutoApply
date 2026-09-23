@@ -319,6 +319,7 @@
     "unknown": "Desconocido",
     "at": "en",
     "match_score_label": "Puntuación de coincidencia:",
+    "role_priority_label": "Prioridad del cargo:",
     "cover_letter_heading": "Carta de Presentación",
     "edit_and_apply": "Editar y Aplicar"
   },

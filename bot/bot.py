@@ -177,6 +177,7 @@ def run_bot(
                                 cover_letter=cover_letter_text,
                                 apply_url=raw_job.apply_url,
                                 eligibility_note=scored.eligibility_note,
+                                priority_reasons=scored.priority_reasons,
                                 message=f"Review: {raw_job.title} at {raw_job.company} (score {scored.score})",
                             )
 

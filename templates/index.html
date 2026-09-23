@@ -421,12 +421,13 @@
           <h3 id="review-job-title">Job Title at Company</h3>
           <div class="review-meta">
             <span id="review-platform">linkedin</span> &middot;
-            Match score: <strong id="review-score">85</strong>%
+            <span id="review-score-label" data-i18n="review.match_score_label">Match score:</span> <strong id="review-score">85</strong>%
           </div>
         </div>
         <button class="btn btn-ghost btn-sm" onclick="reviewSkip()" style="white-space:nowrap;" data-i18n="button.skip">Skip</button>
       </div>
       <p id="review-eligibility" class="review-meta hidden" role="note"></p>
+      <p id="review-priority-reasons" class="review-meta hidden" role="note"></p>
       <div class="review-section">
         <h4 data-i18n="review.cover_letter_heading">Cover Letter</h4>
         <textarea id="review-cover-letter" aria-label="Cover letter text for review"></textarea>
