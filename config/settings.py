@@ -106,6 +106,18 @@ class SearchCriteria(BaseModel):
     keywords_include: list[str] = []
     keywords_exclude: list[str] = []
     experience_levels: list[str] = ["mid", "senior"]
+    # Opt-in international search. Each country is queried separately; a listing
+    # must name one of these countries before it can enter the review queue.
+    target_countries: list[str] = []
+
+    @model_validator(mode="after")
+    def _avoid_cross_currency_salary_comparison(self):
+        if self.target_countries and self.salary_min is not None:
+            raise ValueError(
+                "salary_min cannot be used with target_countries: "
+                "cross-currency salary comparison is unsupported"
+            )
+        return self
 
 
 class ScheduleConfig(BaseModel):

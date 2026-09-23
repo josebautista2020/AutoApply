@@ -40,8 +40,10 @@ class IndeedSearcher(BaseSearcher):
         max_results = getattr(criteria, "max_results_per_search", 100)
         found = 0
 
+        targets = getattr(criteria, "target_countries", None)
+        locations = targets if isinstance(targets, list) and targets else criteria.locations
         for title in criteria.job_titles:
-            for location in criteria.locations:
+            for location in locations:
                 if found >= max_results:
                     return
 

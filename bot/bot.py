@@ -165,7 +165,9 @@ def run_bot(
                         )
 
                         # Review gate — pause for user approval in review/watch modes
-                        if config.bot.apply_mode in ("review", "watch"):
+                        targets = getattr(config.search_criteria, "target_countries", None)
+                        international_review = isinstance(targets, list) and bool(targets)
+                        if config.bot.apply_mode in ("review", "watch") or international_review:
                             emit(
                                 "REVIEW",
                                 job_title=raw_job.title,

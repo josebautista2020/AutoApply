@@ -45,6 +45,29 @@ On first launch, a wizard walks you through 7 steps:
 
 Everything is editable later in the Settings tab. The full set of Application Answers (including EEO disclosures) is available in **Settings → Application Answers**.
 
+## Optional international executive search
+
+To search specific countries, add `target_countries` to `search_criteria` in
+`~/.autoapply/config.json` after completing the wizard. For example:
+
+```json
+"search_criteria": {
+  "job_titles": ["Director of Engineering", "Head of Infrastructure", "Principal Cloud Architect"],
+  "locations": ["Remote"],
+  "target_countries": ["United States", "Spain", "Panama", "Colombia"],
+  "remote_only": false
+}
+```
+
+The searchers query each selected country for each title. A listing enters the
+review queue only when its location explicitly names one of those countries;
+an unqualified `Remote` listing is skipped. International targeting always
+requires review before submission, even if `apply_mode` was previously set to
+`full_auto`. Confirm work authorization, sponsorship, location restrictions,
+salary currency, and every generated claim during that review. The current
+salary filter does not convert currencies; leave `salary_min` unset for searches
+across currencies.
+
 ## Log Into Your Job Platforms
 
 This step is important. AutoApply uses a real browser to search and apply, so it needs your login sessions.

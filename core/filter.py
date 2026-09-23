@@ -9,6 +9,7 @@ blacklisted companies, and duplicate jobs.
 
 from __future__ import annotations
 
+import re
 import uuid
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -58,6 +59,12 @@ def detect_ats(url: str) -> str | None:
         if domain in url_lower:
             return ats
     return None
+
+
+def _confirmed_country(location: str, countries: list[str]) -> bool:
+    """Match a country as a location component, not as part of a city name."""
+    parts = {part.strip().casefold() for part in re.split(r",|\||\s+-\s+|[()]", location)}
+    return any(country.strip().casefold() in parts for country in countries if country.strip())
 
 
 def score_job(
@@ -121,6 +128,17 @@ def score_job(
                 skip_reason=f"Excluded keyword: {kw}",
             )
 
+    # International searches require an explicit country in the listing. A
+    # bare "Remote" does not establish work authorization or eligibility.
+    target_countries = getattr(criteria, "target_countries", [])
+    if isinstance(target_countries, list) and target_countries:
+        if not _confirmed_country(raw_job.location, target_countries):
+            return ScoredJob(
+                id=job_id, raw=raw_job, score=0,
+                pass_filter=False,
+                skip_reason="Country not confirmed in job location",
+            )
+
     # --- Scoring ---
 
     score = 0
@@ -156,7 +174,7 @@ def score_job(
     if criteria.remote_only and "remote" in job_location_lower:
         score += 20
     elif not criteria.remote_only:
-        for loc in criteria.locations:
+        for loc in (target_countries if isinstance(target_countries, list) and target_countries else criteria.locations):
             if loc.lower() in job_location_lower:
                 score += 20
                 break
