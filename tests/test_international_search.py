@@ -44,6 +44,49 @@ def test_country_target_rejects_unconfirmed_remote_listing():
     assert result.skip_reason == "Country not confirmed in job location"
 
 
+def test_sponsorship_conflict_is_excluded_with_reason():
+    cfg = _config(["United States"])
+    cfg.search_criteria.work_authorization = {"United States": "needs_sponsorship"}
+    job = _job("New York, United States")
+    job.description = "This position offers no visa sponsorship."
+    result = score_job(job, cfg)
+    assert not result.pass_filter
+    assert "explicitly excludes" in result.skip_reason
+
+
+def test_sponsorship_unknown_stays_in_review_queue():
+    cfg = _config(["United States"])
+    cfg.search_criteria.work_authorization = {"United States": "needs_sponsorship"}
+    result = score_job(_job("New York, United States"), cfg)
+    assert result.pass_filter
+    assert "confirm employer support" in result.eligibility_note
+
+
+def test_no_sponsorship_required_is_not_a_rejection():
+    cfg = _config(["United States"])
+    cfg.search_criteria.work_authorization = {"United States": "needs_sponsorship"}
+    job = _job("New York, United States")
+    job.description = "No sponsorship required for this opportunity."
+    result = score_job(job, cfg)
+    assert result.pass_filter
+    assert "confirm employer support" in result.eligibility_note
+
+
+def test_unverified_authorization_is_visible_for_review():
+    result = score_job(_job("Bogota, Colombia"), _config(["Colombia"]))
+    assert result.pass_filter
+    assert "unverified" in result.eligibility_note
+
+
+def test_authorization_keys_must_match_target_countries():
+    with pytest.raises(ValueError, match="work_authorization"):
+        SearchCriteria(
+            job_titles=["Director"], locations=["Remote"],
+            target_countries=["Spain"],
+            work_authorization={"United States": "needs_sponsorship"},
+        )
+
+
 def test_country_target_does_not_confuse_panama_city_with_country():
     result = score_job(_job("Panama City, Florida"), _config(["Panama"]))
     assert not result.pass_filter

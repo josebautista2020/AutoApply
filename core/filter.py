@@ -29,6 +29,7 @@ class ScoredJob:
     score: int
     pass_filter: bool
     skip_reason: str | None
+    eligibility_note: str | None = None
 
 
 # ATS fingerprints for URL-based detection
@@ -65,6 +66,37 @@ def _confirmed_country(location: str, countries: list[str]) -> bool:
     """Match a country as a location component, not as part of a city name."""
     parts = {part.strip().casefold() for part in re.split(r",|\||\s+-\s+|[()]", location)}
     return any(country.strip().casefold() in parts for country in countries if country.strip())
+
+
+def _eligibility(job: "RawJob", criteria) -> tuple[bool, str]:
+    """Identify explicit sponsorship conflicts; leave other cases for review.
+
+    Job descriptions are incomplete and may be truncated by a search portal.
+    A positive sponsorship phrase is therefore a clue, never proof of eligibility.
+    """
+    countries = criteria.target_countries
+    parts = {part.strip().casefold() for part in re.split(r",|\||\s+-\s+|[()]", job.location)}
+    country = next((c for c in countries if c.strip().casefold() in parts), None)
+    if country is None:
+        return False, "Country not confirmed in job location"
+
+    statuses = getattr(criteria, "work_authorization", {})
+    status = statuses.get(country, "unknown")
+    description = job.description.casefold()
+    no_sponsorship = bool(re.search(
+        r"\b(?:no|without|unable to provide|cannot provide|will not provide)\s+"
+        r"(?:visa\s+)?sponsorship\b(?!\s+(?:required|needed))"
+        r"|\bsponsorship\s+(?:is\s+)?not\s+available\b"
+        r"|\b(?:will not|cannot|unable to)\s+sponsor\s+(?:work\s+)?visas?\b",
+        description,
+    ))
+    if status == "needs_sponsorship" and no_sponsorship:
+        return False, f"{country}: sponsorship required, listing explicitly excludes it"
+    if status == "needs_sponsorship":
+        return True, f"{country}: sponsorship required; confirm employer support before applying"
+    if status == "authorized":
+        return True, f"{country}: applicant reports authorization; confirm role restrictions"
+    return True, f"{country}: work authorization unverified; check before applying"
 
 
 def score_job(
@@ -131,12 +163,14 @@ def score_job(
     # International searches require an explicit country in the listing. A
     # bare "Remote" does not establish work authorization or eligibility.
     target_countries = getattr(criteria, "target_countries", [])
+    eligibility_note = None
     if isinstance(target_countries, list) and target_countries:
-        if not _confirmed_country(raw_job.location, target_countries):
+        eligible, eligibility_note = _eligibility(raw_job, criteria)
+        if not eligible:
             return ScoredJob(
                 id=job_id, raw=raw_job, score=0,
                 pass_filter=False,
-                skip_reason="Country not confirmed in job location",
+                skip_reason=eligibility_note,
             )
 
     # --- Scoring ---
@@ -203,6 +237,7 @@ def score_job(
     return ScoredJob(
         id=job_id, raw=raw_job, score=score,
         pass_filter=pass_filter, skip_reason=skip_reason,
+        eligibility_note=eligibility_note,
     )
 
 

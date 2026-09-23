@@ -55,6 +55,7 @@ To search specific countries, add `target_countries` to `search_criteria` in
   "job_titles": ["Director of Engineering", "Head of Infrastructure", "Principal Cloud Architect"],
   "locations": ["Remote"],
   "target_countries": ["United States", "Spain", "Panama", "Colombia"],
+  "work_authorization": {"United States": "needs_sponsorship"},
   "remote_only": false
 }
 ```
@@ -67,6 +68,16 @@ requires review before submission, even if `apply_mode` was previously set to
 salary currency, and every generated claim during that review. The current
 salary filter does not convert currencies; leave `salary_min` unset for searches
 across currencies.
+
+`work_authorization` accepts `authorized`, `needs_sponsorship`, or `unknown`
+for each country in `target_countries`. Omitted countries default to unknown.
+An explicit "no sponsorship" requirement excludes a vacancy when the applicant
+needs sponsorship there. Other vacancies retain an eligibility note in the
+review event: the applicant must check legal work authorization, employer
+support and remote location limits against the original posting. This is a
+screening aid, not a visa determination. Do not set a global Work Authorization
+answer in the setup wizard for a multi-country campaign; the same answer may
+be false in another country.
 
 ## Log Into Your Job Platforms
 

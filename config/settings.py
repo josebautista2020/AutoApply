@@ -9,8 +9,9 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
+from typing import Literal
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 _logger = logging.getLogger(__name__)
 
@@ -109,6 +110,11 @@ class SearchCriteria(BaseModel):
     # Opt-in international search. Each country is queried separately; a listing
     # must name one of these countries before it can enter the review queue.
     target_countries: list[str] = []
+    # Applicant's status for each target country. Unknown is intentionally the
+    # default; the location of a vacancy is not proof of work eligibility.
+    work_authorization: dict[
+        str, Literal["authorized", "needs_sponsorship", "unknown"]
+    ] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _avoid_cross_currency_salary_comparison(self):
@@ -117,6 +123,9 @@ class SearchCriteria(BaseModel):
                 "salary_min cannot be used with target_countries: "
                 "cross-currency salary comparison is unsupported"
             )
+        unknown_countries = set(self.work_authorization) - set(self.target_countries)
+        if unknown_countries:
+            raise ValueError("work_authorization countries must be in target_countries")
         return self
 
 

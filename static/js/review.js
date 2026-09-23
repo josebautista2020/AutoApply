@@ -9,6 +9,9 @@ export function showReviewCard(evt) {
     (evt.job_title || t('review.unknown')) + ' ' + t('review.at') + ' ' + (evt.company || t('review.unknown'));
   document.getElementById('review-platform').textContent = evt.platform || '';
   document.getElementById('review-score').textContent = evt.match_score || '--';
+  const eligibility = document.getElementById('review-eligibility');
+  eligibility.textContent = evt.eligibility_note || '';
+  eligibility.classList.toggle('hidden', !evt.eligibility_note);
   document.getElementById('review-cover-letter').value = evt.cover_letter || '';
   // Store apply URL for manual submit
   card.dataset.applyUrl = evt.apply_url || '';
