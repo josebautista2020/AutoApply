@@ -161,6 +161,18 @@ def test_executive_ranking_matches_accents_but_not_partial_words():
     assert not result.pass_filter
 
 
+def test_executive_title_partial_match_ignores_punctuation_and_of():
+    cfg = _config(["Colombia"])
+    cfg.search_criteria.executive_mode = True
+    job = _job("Bogota, Colombia")
+    job.title = "Director, Software Engineering"
+    job.description = "Lead teams and strategy; cloud platform architecture and security."
+    result = score_job(job, cfg)
+    assert result.score == 75
+    assert result.pass_filter
+    assert "Title: partial overlap (20)" in result.priority_reasons
+
+
 def test_country_target_does_not_confuse_panama_city_with_country():
     result = score_job(_job("Panama City, Florida"), _config(["Panama"]))
     assert not result.pass_filter

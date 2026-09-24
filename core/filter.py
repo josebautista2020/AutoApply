@@ -104,7 +104,7 @@ def _eligibility(job: "RawJob", criteria) -> tuple[bool, str]:
 _LEADERSHIP_SIGNALS = (
     ("lead", "liderar", "liderazgo"),
     ("manage", "gestionar", "gestion"),
-    ("team", "equipo", "equipos"),
+    ("team", "teams", "equipo", "equipos"),
     ("strategy", "estrategia"),
     ("roadmap", "hoja de ruta"),
     ("stakeholder", "partes interesadas"),
@@ -161,8 +161,9 @@ def _score_executive(raw_job: "RawJob", criteria) -> tuple[int, list[str]]:
             title_points = 35
             reasons.append(f"Title: {target} (35)")
             break
-        target_words = set(target_lower.split())
-        if target_words and len(target_words & set(title.split())) >= len(target_words) * 0.5:
+        target_words = set(re.findall(r"\w+", target_lower)) - {"of", "de", "del", "the"}
+        title_words = set(re.findall(r"\w+", title)) - {"of", "de", "del", "the"}
+        if target_words and len(target_words & title_words) >= len(target_words) * 0.5:
             title_points = 20
     if title_points == 20:
         reasons.append("Title: partial overlap (20)")

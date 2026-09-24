@@ -6,6 +6,7 @@ Implements: FR-044 (LinkedIn search).
 from __future__ import annotations
 
 import logging
+import re
 import time
 from typing import TYPE_CHECKING, Iterator
 from urllib.parse import quote_plus
@@ -96,7 +97,8 @@ class LinkedInSearcher(BaseSearcher):
             job_cards = page.query_selector_all(
                 ".jobs-search-results__list-item, "
                 ".job-card-container, "
-                "[data-occludable-job-id]"
+                "[data-occludable-job-id], "
+                ".job-search-card"
             )
 
             if not job_cards:
@@ -141,22 +143,26 @@ class LinkedInSearcher(BaseSearcher):
         title_el = page.query_selector(
             ".job-details-jobs-unified-top-card__job-title, "
             ".jobs-unified-top-card__job-title, "
-            "h2.t-24"
+            "h2.t-24, "
+            ".top-card-layout__title"
         )
         company_el = page.query_selector(
             ".job-details-jobs-unified-top-card__company-name, "
             ".jobs-unified-top-card__company-name, "
-            "a.ember-view.t-black.t-normal"
+            "a.ember-view.t-black.t-normal, "
+            ".topcard__org-name-link"
         )
         location_el = page.query_selector(
             ".job-details-jobs-unified-top-card__primary-description-container "
             ".tvm__text, "
-            ".jobs-unified-top-card__bullet"
+            ".jobs-unified-top-card__bullet, "
+            ".topcard__flavor--bullet"
         )
         desc_el = page.query_selector(
             ".jobs-description__content, "
             ".jobs-box__html-content, "
-            "#job-details"
+            "#job-details, "
+            ".show-more-less-html__markup"
         )
 
         title = title_el.inner_text().strip() if title_el else None
@@ -169,6 +175,11 @@ class LinkedInSearcher(BaseSearcher):
 
         # Get job ID from card or URL
         job_id = card.get_attribute("data-occludable-job-id") or ""
+        if not job_id:
+            urn = card.get_attribute("data-entity-urn") or ""
+            match = re.fullmatch(r"urn:li:jobPosting:(\d+)", urn)
+            if match:
+                job_id = match.group(1)
         if not job_id:
             # Try extracting from URL
             current_url = page.url
