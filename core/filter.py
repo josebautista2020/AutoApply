@@ -125,6 +125,12 @@ _ARCHITECTURE_SIGNALS = (
     ("security", "seguridad", "ciberseguridad"),
     ("saas",),
 )
+_DIGITAL_SCOPE = re.compile(
+    r"\b(?:software|cloud|nube|saas|kubernetes|devops|microservices|"
+    r"microservicios|cybersecurity|ciberseguridad|technology|tecnologia|"
+    r"digital|data center|information technology|infraestructura tecnologica|"
+    r"enterprise architecture|arquitectura empresarial)\b"
+)
 
 
 def _fold_accents(value: str) -> str:
@@ -244,7 +250,7 @@ def score_job(
 
     # Exclude keywords
     for kw in criteria.keywords_exclude:
-        if kw.lower() in combined_lower:
+        if kw.strip() and re.search(rf"(?<!\w){re.escape(kw.strip().lower())}(?!\w)", combined_lower):
             return ScoredJob(
                 id=job_id, raw=raw_job, score=0,
                 pass_filter=False,
@@ -269,9 +275,16 @@ def score_job(
         score, reasons = _score_executive(raw_job, criteria)
         threshold = config.bot.min_match_score
         passed = score >= threshold
+        digital_scope = (_DIGITAL_SCOPE.search(_fold_accents(raw_job.description)) or
+                         re.search(r"\b(?:IT|TI)\b", raw_job.description))
+        if passed and not digital_scope:
+            passed = False
+            skip_reason = "No explicit software/cloud/IT scope in job description"
+        else:
+            skip_reason = None if passed else f"Score {score} below threshold {threshold}"
         return ScoredJob(
             id=job_id, raw=raw_job, score=score, pass_filter=passed,
-            skip_reason=None if passed else f"Score {score} below threshold {threshold}",
+            skip_reason=skip_reason,
             eligibility_note=eligibility_note, priority_reasons=reasons,
         )
 

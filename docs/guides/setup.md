@@ -101,6 +101,13 @@ documents, saving applications, or submitting anything:
 python scripts/preview_search.py --config private/config.json --platform linkedin --country Colombia --title "Director de Ingeniería" --limit 10
 ```
 
+If Chromium is not installed, add `--public-html --limit 3` to read LinkedIn's
+public search and detail pages over HTTPS. This requires one `--country` and
+`--title` and supports up to five jobs per run. If LinkedIn rate limits requests,
+the command stops and reports the partial result without automatic retries;
+it does not validate the Playwright browser selectors or logged-in application
+forms.
+
 The JSON output includes filter decisions, country eligibility notes, and
 whether a description was extracted. The browser session itself may require
 sign-in or verification, and selectors still need validation on the user's

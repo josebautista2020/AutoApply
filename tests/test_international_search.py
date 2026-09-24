@@ -173,6 +173,32 @@ def test_executive_title_partial_match_ignores_punctuation_and_of():
     assert "Title: partial overlap (20)" in result.priority_reasons
 
 
+def test_intern_exclusion_does_not_match_internal():
+    cfg = _config(["Colombia"])
+    cfg.search_criteria.keywords_exclude = ["intern", "junior"]
+    job = _job("Bogota, Colombia")
+    job.description = "Lead internal cloud architecture teams."
+    assert score_job(job, cfg).pass_filter
+    job.description = "Hiring a summer intern for the cloud architecture team."
+    assert score_job(job, cfg).skip_reason == "Excluded keyword: intern"
+
+
+def test_executive_industrial_engineering_scope_stays_out_of_review():
+    cfg = _config(["Colombia"])
+    cfg.search_criteria.executive_mode = True
+    cfg.search_criteria.job_titles = ["Director de Ingeniería"]
+    job = _job("Sibaté, Colombia")
+    job.title = "Director de Ingeniería"
+    job.description = (
+        "Dirigir estrategia, gestión de equipos y seguridad en proyectos de "
+        "mantenimiento, manufactura, CAPEX e ingeniería mecánica."
+    )
+    result = score_job(job, cfg)
+    assert result.score >= 70
+    assert not result.pass_filter
+    assert result.skip_reason == "No explicit software/cloud/IT scope in job description"
+
+
 def test_country_target_does_not_confuse_panama_city_with_country():
     result = score_job(_job("Panama City, Florida"), _config(["Panama"]))
     assert not result.pass_filter
