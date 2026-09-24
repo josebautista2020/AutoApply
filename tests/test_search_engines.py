@@ -80,6 +80,40 @@ class TestLinkedInSearcher:
         assert results == []
 
     @patch("bot.search.linkedin.time.sleep")
+    def test_public_search_card_and_detail_selectors(self, _sleep):
+        """Public LinkedIn results use job-search-card and a jobPosting URN."""
+        page = _make_page()
+        card = MagicMock()
+        card.get_attribute.side_effect = lambda name: (
+            "urn:li:jobPosting:4430762421" if name == "data-entity-urn" else ""
+        )
+        page.query_selector_all.return_value = [card]
+        fields = {
+            ".top-card-layout__title": "Director, Software Engineering",
+            ".topcard__org-name-link": "Visa",
+            ".topcard__flavor--bullet": "Bogota, D.C., Colombia",
+            ".show-more-less-html__markup": "Lead cloud platform engineering on GCP.",
+        }
+
+        def select(selector):
+            for marker, value in fields.items():
+                if marker in selector:
+                    element = MagicMock()
+                    element.inner_text.return_value = value
+                    return element
+            return None
+
+        page.query_selector.side_effect = select
+        searcher = LinkedInSearcher()
+        job = searcher._extract_job(page, card)
+
+        assert job.external_id == "linkedin-4430762421"
+        assert job.title == "Director, Software Engineering"
+        assert job.location == "Bogota, D.C., Colombia"
+        assert "GCP" in job.description
+        assert job.apply_url == "https://www.linkedin.com/jobs/view/4430762421/"
+
+    @patch("bot.search.linkedin.time.sleep")
     def test_login_wall_yields_nothing(self, _sleep):
         page = _make_page("https://www.linkedin.com/login")
         searcher = LinkedInSearcher()
@@ -697,8 +731,12 @@ class TestLinkedInApplier:
         fi = MagicMock()
         page.query_selector.return_value = fi
         applier = LinkedInApplier(page)
-        applier._upload_resume(Path("/tmp/resume.pdf"))
-        fi.set_input_files.assert_called_once()
+        uploaded = applier._safe_upload(Path("/tmp/resume.pdf"), [
+            "input[type='file'][name*='resume']",
+            "input[type='file']",
+        ])
+        assert uploaded is True
+        fi.set_input_files.assert_called_once_with("/tmp/resume.pdf")
 
     @patch("bot.apply.base.time.sleep")
     def test_fill_cover_letter(self, _sleep):

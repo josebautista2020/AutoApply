@@ -319,6 +319,7 @@
     "unknown": "Unknown",
     "at": "at",
     "match_score_label": "Match score:",
+    "role_priority_label": "Role priority:",
     "cover_letter_heading": "Cover Letter",
     "edit_and_apply": "Edit & Apply"
   },

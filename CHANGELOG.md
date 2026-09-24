@@ -4,6 +4,15 @@ All notable changes to AutoApply are documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+- Optional country-specific executive search with explicit country checks and mandatory application review.
+
+### Fixed
+- Align LinkedIn, Ashby, and Workday upload tests with the current safe upload helper.
+- Update installation instructions for the PyWebView desktop shell and PyInstaller packaging.
+
 ## [2.3.3] - 2026-03-12
 
 ### Fixed

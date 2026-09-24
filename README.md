@@ -19,7 +19,7 @@ AutoApply searches LinkedIn and Indeed, scores each job against your preferences
 - **Automated applications** — Fills forms, uploads documents, and submits on LinkedIn Easy Apply, Indeed Quick Apply, Greenhouse, Lever, Workday, and Ashby
 - **Review mode** — Optionally review each application before it's submitted
 - **Dashboard** — Real-time live feed, application history, analytics, resume library, CSV export
-- **Desktop app** — Electron shell with system tray support (minimize to tray, runs in background)
+- **Desktop app** — PyWebView shell with system tray support (minimize to tray, runs in background)
 - **Login session persistence** — Log in once, sessions are saved across restarts
 - **Scheduling** — Set days and hours for the bot to run automatically
 - **Accessible** — WCAG 2.1 AA compliant: keyboard navigation, screen reader support, focus management, reduced motion
@@ -28,43 +28,39 @@ AutoApply searches LinkedIn and Indeed, scores each job against your preferences
 
 ## Quick Start
 
-**Prerequisites**: Python 3.11+, Node.js 18+, and Google Chrome installed.
+**Prerequisites**: Python 3.11+ and a supported system webview for desktop mode (Edge WebView2 on Windows; WebKit on macOS/Linux). Playwright installs its own Chromium for job search and applications.
 
 ```bash
 # 1. Clone and set up
-git clone https://github.com/AbhishekMandapmalvi/AutoApply.git
+git clone https://github.com/josebautista2020/AutoApply.git
 cd AutoApply
+git switch feature/executive-global-search
 python -m venv venv
 venv\Scripts\activate        # Windows
 source venv/bin/activate     # macOS/Linux
-python setup_env.py
+python -m pip install -e .
 
 # 2. Install Playwright browser (for job searching/applying)
-playwright install chromium
+python -m playwright install chromium
 
-# 3. Launch the desktop app
-cd electron
-npm install
-npm start
+# 3. Launch the desktop app (PyWebView)
+python run.py --gui
 ```
 
 A native app window opens with the dashboard. A setup wizard walks you through configuration on first launch.
 
 ## Building Installers
 
-To create standalone installers (no Python/Node.js required on the target machine):
+To package a standalone application on the target operating system:
 
 ```bash
-cd electron
-npm install
-npm run dist:win          # Windows NSIS installer (.exe)
-npm run dist:mac          # macOS disk image (.dmg)
-npm run dist:linux        # Linux portable (.AppImage)
+python -m pip install -e ".[dev]"
+python -m PyInstaller autoapply.spec
 ```
 
-The build process automatically syncs the version from `pyproject.toml`, generates app icons, downloads an embedded Python runtime, and bundles all dependencies. Output goes to `electron/build/`.
+The PyInstaller specification packages the Python application and its PyWebView shell. Output goes to `dist/`. Build on each target operating system separately.
 
-For CI-based releases, push a `v*` tag (e.g., `v1.9.0`) to trigger the GitHub Actions workflow that builds all three platforms and creates a GitHub Release.
+For CI-based releases, push a `v*` tag (e.g., `v2.4.1`) to trigger the GitHub Actions release workflow.
 
 ## How It Works
 
@@ -139,11 +135,8 @@ AutoApply/
 │   ├── js/                 # 17 ES modules (app.js entry point)
 │   └── locales/en.json     # i18n string catalog (430+ keys, 25 sections)
 ├── routes/                 # 8 Flask Blueprints (bot, applications, config, profile, login, analytics, lifecycle, knowledge_base)
-├── electron/               # Electron desktop shell
-│   ├── main.js             # App window, tray, lifecycle
-│   ├── python-backend.js   # Python process management
-│   ├── icons/              # Generated app icons (PNG, ICO, ICNS)
-│   └── scripts/            # Build scripts (version sync, icon gen, Python bundling)
+├── shell/                  # PyWebView window, system tray, process lifecycle
+├── autoapply.spec          # PyInstaller packaging configuration
 ├── tests/                  # 1385 tests (pytest)
 └── docs/                   # User and developer documentation
 ```
@@ -199,7 +192,7 @@ python -m pytest tests/ -v
 | AI | Multi-provider LLM API (Anthropic, OpenAI, Google, DeepSeek) |
 | PDF generation | ReportLab (fallback), LaTeX via Jinja2 templates (KB assembly) |
 | Config | Pydantic v2 |
-| Desktop | Electron |
+| Desktop | PyWebView, pystray, PyInstaller |
 | Frontend | Vanilla JS SPA (17 ES modules, no build step) |
 | i18n | JSON locale files (`static/locales/`) with `t()` translation function |
 | Accessibility | WCAG 2.1 AA (ARIA, keyboard nav, focus management, reduced motion) |

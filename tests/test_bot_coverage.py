@@ -128,7 +128,7 @@ class TestRunBotMultipleJobs:
         scored2 = _make_scored(raw=raw2, pass_filter=True)
 
         mock_score.side_effect = [scored1, scored2]
-        mock_gen.return_value = ("/r.pdf", "/cl.txt", "cover")
+        mock_gen.return_value = ("/r.pdf", "/cl.txt", "cover", None)
         mock_apply.return_value = ApplyResult(success=True)
 
         state = BotState()
@@ -172,7 +172,7 @@ class TestRunBotMultipleJobs:
         scored_pass = _make_scored(raw=raw2, pass_filter=True)
 
         mock_score.side_effect = [scored_fail, scored_pass]
-        mock_gen.return_value = ("/r.pdf", "/cl.txt", "cover")
+        mock_gen.return_value = ("/r.pdf", "/cl.txt", "cover", None)
         mock_apply.return_value = ApplyResult(success=True)
 
         state = BotState()
@@ -224,8 +224,12 @@ class TestRunBotReviewStop:
         raw = FakeRawJob()
         scored = _make_scored(raw=raw, pass_filter=True)
         mock_score.return_value = scored
-        mock_gen.return_value = ("/r.pdf", "/cl.txt", "cover")
-        mock_review.return_value = ("stop", None)
+        mock_gen.return_value = ("/r.pdf", "/cl.txt", "cover", None)
+        def stop_review(review_state):
+            review_state.stop()
+            return "stop", None
+
+        mock_review.side_effect = stop_review
 
         state = BotState()
         state.start()
@@ -264,7 +268,7 @@ class TestRunBotReviewStop:
         raw = FakeRawJob()
         scored = _make_scored(raw=raw, pass_filter=True)
         mock_score.return_value = scored
-        mock_gen.return_value = ("/r.pdf", "/cl.txt", "cover")
+        mock_gen.return_value = ("/r.pdf", "/cl.txt", "cover", None)
         mock_review.return_value = ("approve", None)
         mock_apply.return_value = ApplyResult(success=True)
 
@@ -402,7 +406,7 @@ class TestGenerateDocsBranches:
         config = _make_config()
         config.profile.fallback_resume_path = str(tmp_path / "nonexistent.pdf")
 
-        r, c, text = _generate_docs(scored, config, tmp_path)
+        r, c, text, _meta = _generate_docs(scored, config, tmp_path)
         assert r is None  # fallback file doesn't exist
         assert c is None
 
@@ -415,7 +419,7 @@ class TestGenerateDocsBranches:
         config = _make_config()
         config.bot.cover_letter_template = ""
 
-        r, c, text = _generate_docs(scored, config, tmp_path)
+        r, c, text, _meta = _generate_docs(scored, config, tmp_path)
         assert text == ""
 
 
