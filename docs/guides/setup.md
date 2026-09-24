@@ -94,6 +94,22 @@ is opt-in, so existing scoring remains unchanged.
 
 ## Import a private profile
 
+Before running the bot, preview up to ten LinkedIn results without generating
+documents, saving applications, or submitting anything:
+
+```bash
+python scripts/preview_search.py --config private/config.json --platform linkedin --country Colombia --title "Director de Ingeniería" --limit 10
+```
+
+The JSON output includes filter decisions, country eligibility notes, and
+whether a description was extracted. The browser session itself may require
+sign-in or verification, and selectors still need validation on the user's
+installation. For Indeed, specify `--platform indeed`; portal access may be
+blocked by verification. This preview never changes `apply_mode` or starts
+the application loop. Repeat with the other countries and titles to cover the
+international search; a capped preview of all countries can stop in the first
+country. Zero results do not prove that no jobs are available.
+
 Keep personal configuration, experience and CV files outside the public Git
 repository. After downloading them to one directory on your computer, run
 the importer from the repository checkout (substitute your filenames):
