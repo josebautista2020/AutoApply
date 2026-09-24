@@ -10,6 +10,7 @@ blacklisted companies, and duplicate jobs.
 from __future__ import annotations
 
 import re
+import unicodedata
 import uuid
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -101,18 +102,52 @@ def _eligibility(job: "RawJob", criteria) -> tuple[bool, str]:
 
 
 _LEADERSHIP_SIGNALS = (
-    "lead", "manage", "team", "strategy", "roadmap", "stakeholder",
-    "budget", "governance", "mentor", "organizational",
+    ("lead", "liderar", "liderazgo"),
+    ("manage", "gestionar", "gestion"),
+    ("team", "equipo", "equipos"),
+    ("strategy", "estrategia"),
+    ("roadmap", "hoja de ruta"),
+    ("stakeholder", "partes interesadas"),
+    ("budget", "presupuesto"),
+    ("governance", "gobernanza", "gobierno"),
+    ("mentor", "mentoria"),
+    ("organizational", "organizacional"),
 )
 _ARCHITECTURE_SIGNALS = (
-    "architecture", "cloud", "platform", "infrastructure", "migration",
-    "devsecops", "kubernetes", "resilience", "security", "saas",
+    ("architecture", "arquitectura"),
+    ("cloud", "nube"),
+    ("platform", "plataforma", "plataformas"),
+    ("infrastructure", "infraestructura"),
+    ("migration", "migracion", "migraciones"),
+    ("devsecops",),
+    ("kubernetes",),
+    ("resilience", "resiliencia"),
+    ("security", "seguridad", "ciberseguridad"),
+    ("saas",),
 )
 
 
-def _matching_signals(description: str, terms: tuple[str, ...], limit: int) -> list[str]:
-    """Count distinct whole-word role signals from the original posting."""
-    return [term for term in terms if re.search(rf"\b{re.escape(term)}\b", description)][:limit]
+def _fold_accents(value: str) -> str:
+    return "".join(
+        char for char in unicodedata.normalize("NFKD", value.casefold())
+        if not unicodedata.combining(char)
+    )
+
+
+def _matching_signals(
+    description: str, concepts: tuple[tuple[str, ...], ...], limit: int
+) -> list[str]:
+    """Count each English/Spanish role concept once, matching complete terms."""
+    folded = _fold_accents(description)
+    matches = []
+    for aliases in concepts:
+        match = next((
+            alias for alias in aliases
+            if re.search(rf"\b{re.escape(_fold_accents(alias))}\b", folded)
+        ), None)
+        if match:
+            matches.append(match)
+    return matches[:limit]
 
 
 def _score_executive(raw_job: "RawJob", criteria) -> tuple[int, list[str]]:

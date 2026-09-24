@@ -52,7 +52,7 @@ To search specific countries, add `target_countries` to `search_criteria` in
 
 ```json
 "search_criteria": {
-  "job_titles": ["Director of Engineering", "Head of Infrastructure", "Principal Cloud Architect"],
+  "job_titles": ["Director of Engineering", "Head of Infrastructure", "Principal Cloud Architect", "Director de Ingeniería", "Director de Infraestructura Tecnológica", "Arquitecto Empresarial"],
   "locations": ["Remote"],
   "target_countries": ["United States", "Spain", "Panama", "Colombia"],
   "work_authorization": {"United States": "needs_sponsorship"},
@@ -69,6 +69,9 @@ requires review before submission, even if `apply_mode` was previously set to
 salary currency, and every generated claim during that review. The current
 salary filter does not convert currencies; leave `salary_min` unset for searches
 across currencies.
+Include relevant local-language titles for the selected countries. Terms like
+`Director de Infraestructura` can refer to buildings and civil engineering;
+review the technical scope of each result before applying.
 
 `work_authorization` accepts `authorized`, `needs_sponsorship`, or `unknown`
 for each country in `target_countries`. Omitted countries default to unknown.
@@ -82,6 +85,7 @@ be false in another country.
 
 With `executive_mode`, ranking allocates up to 35 points to the title, 20 to
 location, 25 to leadership terms and 20 to architecture terms in the posting.
+English and Spanish equivalents count as one concept, including accented words.
 The review card shows the terms that contributed to the score. Missing salary
 information earns no points and salary is not compared across currencies.
 These are signals about the *role*, not evidence that the applicant meets its

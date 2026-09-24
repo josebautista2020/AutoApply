@@ -123,6 +123,43 @@ def test_executive_ranking_does_not_count_substrings_as_signals():
     assert not result.pass_filter
 
 
+def test_executive_ranking_recognizes_spanish_role_scope():
+    cfg = _config(["Colombia"])
+    cfg.search_criteria.executive_mode = True
+    cfg.search_criteria.job_titles = ["Director de Infraestructura Tecnológica"]
+    job = _job("Bogotá, Colombia")
+    job.title = "Director de Infraestructura Tecnológica"
+    job.description = (
+        "Liderar equipos y definir la estrategia y el presupuesto. "
+        "Arquitectura de nube, plataformas e infraestructura tecnológica."
+    )
+    result = score_job(job, cfg)
+    assert result.pass_filter
+    assert result.score == 95
+    assert any("liderar" in reason for reason in result.priority_reasons)
+    assert any("arquitectura" in reason for reason in result.priority_reasons)
+
+
+def test_executive_ranking_does_not_double_count_bilingual_synonyms():
+    cfg = _config(["Spain"])
+    cfg.search_criteria.executive_mode = True
+    job = _job("Madrid, Spain")
+    job.description = "Lead and liderar team equipos; cloud nube architecture arquitectura."
+    result = score_job(job, cfg)
+    assert result.score == 75
+    assert result.pass_filter
+
+
+def test_executive_ranking_matches_accents_but_not_partial_words():
+    cfg = _config(["Panama"])
+    cfg.search_criteria.executive_mode = True
+    job = _job("Panama City, Panama")
+    job.description = "Gestión y migración; cloudberry y arquitecturaista."
+    result = score_job(job, cfg)
+    assert result.score == 65
+    assert not result.pass_filter
+
+
 def test_country_target_does_not_confuse_panama_city_with_country():
     result = score_job(_job("Panama City, Florida"), _config(["Panama"]))
     assert not result.pass_filter
