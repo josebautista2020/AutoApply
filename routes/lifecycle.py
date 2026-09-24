@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import signal
+import threading
 
 from flask import Blueprint, abort, jsonify, render_template, request
 from flask_socketio import emit
@@ -62,7 +63,6 @@ def shutdown():
         graceful_shutdown()
         os.kill(pid, signal.SIGTERM)
 
-    import threading
     threading.Thread(target=_shutdown, daemon=True).start()
     return jsonify({"status": "shutting_down"})
 

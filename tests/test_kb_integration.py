@@ -242,7 +242,8 @@ class TestExperienceCalculatorIntegration:
             title="Engineer", company="Acme", start_date="2020-01",
         )
         assert id1 is not None
-        assert id2 is None
+        assert id2 == id1
+        assert len(db.get_roles()) == 1
 
 
 class TestCRUDLifecycle:

@@ -332,12 +332,13 @@ class TestLifecycleRoutes:
         # but that's fine — we're testing the route handler runs)
         assert resp.status_code in (200, 500)
 
-    @patch("routes.lifecycle.os.kill")
-    def test_shutdown_forbidden_remote(self, mock_kill):
+    @patch("routes.lifecycle.threading.Thread")
+    def test_shutdown_forbidden_remote(self, mock_thread):
         # Can't easily test remote IP with test client (always 127.0.0.1)
         # But we can test the success path
         resp = self.client.post("/api/shutdown")
         assert resp.status_code == 200
+        mock_thread.return_value.start.assert_called_once_with()
         data = resp.get_json()
         assert data["status"] == "shutting_down"
 

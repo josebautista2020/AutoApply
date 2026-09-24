@@ -258,10 +258,15 @@ class TestAppState:
         assert hasattr(app_state, "bot_scheduler")
         assert hasattr(app_state, "api_token")
 
-    def test_default_values(self):
+    def test_runtime_values_are_well_typed(self):
+        import threading
+
         import app_state
-        assert app_state.api_token == ""
-        assert app_state.bot_thread is None
+        # create_app() initializes the token during earlier API tests; both
+        # pre-initialization and initialized states are valid here.
+        assert isinstance(app_state.api_token, str)
+        assert not app_state.api_token or len(app_state.api_token) == 64
+        assert app_state.bot_thread is None or isinstance(app_state.bot_thread, threading.Thread)
         assert app_state.login_proc is None
 
     def test_locks_are_threading_locks(self):
