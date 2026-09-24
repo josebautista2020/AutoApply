@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from bot.search.base import RawJob
 from bot.search.indeed import IndeedSearcher
 from bot.search.linkedin import LinkedInSearcher
 from config.settings import SearchCriteria
@@ -186,3 +187,29 @@ def test_searchers_query_selected_countries_instead_of_generic_remote():
         with patch.object(searcher, "_search_page", return_value=iter(())) as search_page:
             list(searcher.search(criteria, page=MagicMock()))
         assert [call.args[2] for call in search_page.call_args_list] == ["Spain", "Colombia"]
+
+
+@pytest.mark.parametrize("searcher_class", [LinkedInSearcher, IndeedSearcher])
+def test_searchers_deduplicate_titles_and_honor_global_result_limit(searcher_class):
+    criteria = MagicMock(
+        job_titles=["Director of Engineering", "Director de Ingeniería"],
+        locations=["Remote"], target_countries=["Spain", "Colombia"],
+        max_results_per_search=2,
+    )
+
+    def job(external_id):
+        return RawJob(
+            title="Director of Engineering", company="Acme", location="Madrid, Spain",
+            salary=None, description="Architecture", apply_url="https://example.com/job",
+            platform="test", external_id=external_id, posted_at=None,
+        )
+
+    searcher = searcher_class()
+    with patch.object(searcher, "_search_page", side_effect=[
+        iter([job("one")]), iter([job("one"), job("two")]),
+    ]) as search_page:
+        results = list(searcher.search(criteria, page=MagicMock()))
+
+    assert [result.external_id for result in results] == ["one", "two"]
+    assert search_page.call_count == 2
+    assert search_page.call_args_list[1].args[-1] == 1

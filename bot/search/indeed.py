@@ -39,6 +39,7 @@ class IndeedSearcher(BaseSearcher):
 
         max_results = getattr(criteria, "max_results_per_search", 100)
         found = 0
+        seen_ids: set[str] = set()
 
         targets = getattr(criteria, "target_countries", None)
         locations = targets if isinstance(targets, list) and targets else criteria.locations
@@ -48,9 +49,16 @@ class IndeedSearcher(BaseSearcher):
                     return
 
                 try:
-                    yield from self._search_page(
+                    for job in self._search_page(
                         page, title, location, max_results - found
-                    )
+                    ):
+                        if job.external_id in seen_ids:
+                            continue
+                        seen_ids.add(job.external_id)
+                        found += 1
+                        yield job
+                        if found >= max_results:
+                            return
                 except Exception as e:
                     logger.error(
                         "Indeed search failed for '%s' in '%s': %s",
