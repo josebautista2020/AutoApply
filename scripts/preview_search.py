@@ -8,17 +8,16 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 from pathlib import Path
 from types import SimpleNamespace
-from urllib.parse import urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from bot.bot import SEARCHERS  # noqa: E402
 from bot.browser import BrowserManager  # noqa: E402
 from bot.search.base import RawJob  # noqa: E402
+from bot.search.linkedin_public import public_linkedin_jobs  # noqa: E402
 from config.settings import AppConfig, get_data_dir  # noqa: E402
 from core.filter import score_job  # noqa: E402
 
@@ -61,68 +60,6 @@ def preview_jobs(config: AppConfig, page, platforms: list[str], limit: int) -> l
             if len(results) >= limit:
                 return results
     return results
-
-
-def _has_class(name: str) -> str:
-    return f'contains(concat(" ", normalize-space(@class), " "), " {name} ")'
-
-
-def _text(tree, name: str) -> str:
-    nodes = tree.xpath(f'//*[{_has_class(name)}]')
-    return " ".join(" ".join(nodes[0].itertext()).split()) if nodes else ""
-
-
-def public_linkedin_jobs(title: str, country: str, limit: int, warnings: list[str]):
-    """Read public HTML only; no browser session, login, or application flow."""
-    import requests
-    from lxml import html
-
-    response = requests.get(
-        "https://www.linkedin.com/jobs/search/",
-        params={"keywords": title, "location": country}, timeout=25,
-    )
-    if response.status_code == 429:
-        warnings.append("LinkedIn rate limited the search; stop and retry later")
-        return
-    response.raise_for_status()
-    response.encoding = "utf-8"
-    cards = html.fromstring(response.text).xpath(f'//*[{_has_class("job-search-card")}]')
-    seen: set[str] = set()
-    for card in cards:
-        urn = card.get("data-entity-urn", "")
-        match = re.fullmatch(r"urn:li:jobPosting:(\d+)", urn)
-        links = card.xpath(f'.//a[{_has_class("base-card__full-link")}]/@href')
-        if not match or not links or match.group(1) in seen:
-            continue
-        job_url = links[0]
-        host = urlparse(job_url).hostname or ""
-        if (urlparse(job_url).scheme != "https" or
-            not urlparse(job_url).path.startswith("/jobs/view/") or not (
-            host == "linkedin.com" or host.endswith(".linkedin.com")
-        )):
-            continue
-        seen.add(match.group(1))
-        detail_url = job_url.split("?", 1)[0]
-        detail = requests.get(detail_url, timeout=25)
-        if detail.status_code == 429:
-            warnings.append("LinkedIn rate limited job details; preview stopped early")
-            return
-        detail.raise_for_status()
-        detail.encoding = "utf-8"
-        tree = html.fromstring(detail.text)
-        title_text = _text(tree, "top-card-layout__title")
-        company = _text(tree, "topcard__org-name-link")
-        if not title_text or not company:
-            continue
-        yield RawJob(
-            title=title_text, company=company,
-            location=_text(tree, "topcard__flavor--bullet"),
-            salary=None, description=_text(tree, "show-more-less-html__markup"),
-            apply_url=detail_url, platform="linkedin",
-            external_id=f"linkedin-{match.group(1)}", posted_at=None,
-        )
-        if len(seen) >= limit:
-            return
 
 
 def main() -> int:

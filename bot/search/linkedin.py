@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Iterator
 from urllib.parse import quote_plus
 
 from bot.search.base import BaseSearcher, RawJob
+from bot.search.linkedin_public import public_linkedin_jobs
 
 if TYPE_CHECKING:
     from config.settings import SearchCriteria
@@ -41,12 +42,17 @@ class LinkedInSearcher(BaseSearcher):
         max_results = getattr(criteria, "max_results_per_search", 100)
         found = 0
         seen_ids: set[str] = set()
+        self._public_attempts = 0
+        self._public_blocked = False
 
         targets = getattr(criteria, "target_countries", None)
         locations = targets if isinstance(targets, list) and targets else criteria.locations
         for title in criteria.job_titles:
             for location in locations:
                 if found >= max_results:
+                    return
+                if self._public_blocked:
+                    logger.warning("LinkedIn: stopping searches after public rate limit")
                     return
 
                 try:
@@ -94,6 +100,8 @@ class LinkedInSearcher(BaseSearcher):
         page_num = 0
 
         max_pages = getattr(criteria, "max_pages_per_search", 10)
+        if not isinstance(max_pages, int):
+            max_pages = 10
         while found < remaining and page_num < max_pages:
             job_cards = page.query_selector_all(
                 ".jobs-search-results__list-item, "
@@ -108,7 +116,9 @@ class LinkedInSearcher(BaseSearcher):
 
             # Limit work when cards cannot be opened (auth walls/overlays). A
             # preview requesting a few jobs must not wait on every card.
-            card_limit = getattr(criteria, "max_cards_per_page", max(10, remaining * 3))
+            card_limit = getattr(criteria, "max_cards_per_page", 10)
+            if not isinstance(card_limit, int):
+                card_limit = 10
             for card in job_cards[:min(len(job_cards), card_limit)]:
                 if found >= remaining:
                     return
@@ -120,6 +130,32 @@ class LinkedInSearcher(BaseSearcher):
                         yield raw_job
                 except Exception as e:
                     logger.debug("LinkedIn: failed to extract job card: %s", e)
+
+            # Public cards can be visible while their detail panels refuse
+            # clicks. Use the same read-only public extraction as the preview.
+            public_cards = any(
+                isinstance(urn := card.get_attribute("data-entity-urn"), str)
+                and re.fullmatch(r"urn:li:jobPosting:\d+", urn)
+                for card in job_cards[:card_limit]
+            )
+            if found == 0 and page_num == 0 and public_cards:
+                if self._public_attempts < 2:
+                    self._public_attempts += 1
+                    warnings: list[str] = []
+                    try:
+                        for job in public_linkedin_jobs(
+                            title, location, min(remaining, 5), warnings,
+                            remote_only=criteria.remote_only,
+                        ):
+                            found += 1
+                            yield job
+                    except Exception as e:
+                        logger.warning("LinkedIn public extraction failed: %s", e)
+                    for warning in warnings:
+                        logger.warning("LinkedIn: %s", warning)
+                    if any("rate limited" in warning for warning in warnings):
+                        self._public_blocked = True
+                return
 
             # Try next page
             page_num += 1

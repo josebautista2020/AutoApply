@@ -115,6 +115,49 @@ class TestLinkedInSearcher:
         assert job.apply_url == "https://www.linkedin.com/jobs/view/4430762421/"
 
     @patch("bot.search.linkedin.time.sleep")
+    def test_public_cards_fall_back_when_detail_clicks_fail(self, _sleep):
+        page = _make_page()
+        card = MagicMock()
+        card.get_attribute.side_effect = lambda name: (
+            "urn:li:jobPosting:4430762421" if name == "data-entity-urn" else ""
+        )
+        page.query_selector_all.return_value = [card]
+        card.click.side_effect = Exception("card obscured")
+        fallback_job = RawJob(
+            title="Director, Software Engineering", company="Visa",
+            location="Bogotá, Colombia", salary=None, description="Lead cloud teams",
+            apply_url="https://co.linkedin.com/jobs/view/4430762421",
+            platform="linkedin", external_id="linkedin-4430762421", posted_at=None,
+        )
+        with patch("bot.search.linkedin.public_linkedin_jobs", return_value=iter([fallback_job])) as public:
+            jobs = list(LinkedInSearcher().search(_make_criteria(), page=page))
+
+        assert jobs == [fallback_job]
+        public.assert_called_once_with(
+            "Software Engineer", "Remote", 5, [], remote_only=False,
+        )
+
+    @patch("bot.search.linkedin.time.sleep")
+    def test_public_fallback_stops_after_rate_limit(self, _sleep):
+        page = _make_page()
+        card = MagicMock()
+        card.get_attribute.side_effect = lambda name: (
+            "urn:li:jobPosting:123" if name == "data-entity-urn" else ""
+        )
+        card.click.side_effect = Exception("card obscured")
+        page.query_selector_all.return_value = [card]
+        criteria = _make_criteria(job_titles=["Director", "Architect"])
+
+        def limited(_title, _location, _limit, warnings, **_kwargs):
+            warnings.append("LinkedIn rate limited the search; stop and retry later")
+            return iter(())
+
+        with patch("bot.search.linkedin.public_linkedin_jobs", side_effect=limited) as public:
+            assert list(LinkedInSearcher().search(criteria, page=page)) == []
+        public.assert_called_once()
+        page.goto.assert_called_once()
+
+    @patch("bot.search.linkedin.time.sleep")
     def test_login_wall_yields_nothing(self, _sleep):
         page = _make_page("https://www.linkedin.com/login")
         searcher = LinkedInSearcher()
