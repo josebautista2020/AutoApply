@@ -93,7 +93,7 @@ class LinkedInSearcher(BaseSearcher):
         found = 0
         page_num = 0
 
-        while found < remaining:
+        while found < remaining and page_num < 10:
             job_cards = page.query_selector_all(
                 ".jobs-search-results__list-item, "
                 ".job-card-container, "
@@ -105,7 +105,9 @@ class LinkedInSearcher(BaseSearcher):
                 logger.info("LinkedIn: no job cards found on page %d", page_num)
                 break
 
-            for card in job_cards:
+            # Limit work when cards cannot be opened (auth walls/overlays). A
+            # preview requesting a few jobs must not wait on every card.
+            for card in job_cards[:min(len(job_cards), max(10, remaining * 3))]:
                 if found >= remaining:
                     return
 
@@ -126,14 +128,18 @@ class LinkedInSearcher(BaseSearcher):
             if not next_btn or not next_btn.is_enabled():
                 break
 
-            next_btn.click()
+            try:
+                next_btn.click(timeout=3000)
+            except Exception as e:
+                logger.warning("LinkedIn: could not advance to next page: %s", e)
+                break
             time.sleep(2)
 
     def _extract_job(self, page, card) -> RawJob | None:
         """Extract job details from a LinkedIn job card."""
         # Click the card to load the detail panel
         try:
-            card.click()
+            card.click(timeout=3000)
             time.sleep(1)
         except Exception as e:
             logger.debug("LinkedIn: failed to click job card: %s", e)

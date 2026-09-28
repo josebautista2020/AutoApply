@@ -41,6 +41,7 @@ def _preview_entry(job: RawJob, config: AppConfig) -> dict:
 
 def preview_jobs(config: AppConfig, page, platforms: list[str], limit: int) -> list[dict]:
     """Use the production searchers and scorer, stopping after ``limit`` jobs."""
+    config.search_criteria.max_results_per_search = limit
     results: list[dict] = []
     seen: set[tuple[str, str]] = set()
     for platform in platforms:

@@ -107,6 +107,7 @@ class TestLinkedInSearcher:
         searcher = LinkedInSearcher()
         job = searcher._extract_job(page, card)
 
+        card.click.assert_called_once_with(timeout=3000)
         assert job.external_id == "linkedin-4430762421"
         assert job.title == "Director, Software Engineering"
         assert job.location == "Bogota, D.C., Colombia"
