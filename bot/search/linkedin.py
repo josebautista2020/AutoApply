@@ -44,6 +44,7 @@ class LinkedInSearcher(BaseSearcher):
         seen_ids: set[str] = set()
         self._public_attempts = 0
         self._public_blocked = False
+        self.used_public_fallback = False
 
         targets = getattr(criteria, "target_countries", None)
         locations = targets if isinstance(targets, list) and targets else criteria.locations
@@ -141,6 +142,7 @@ class LinkedInSearcher(BaseSearcher):
             if found == 0 and page_num == 0 and public_cards:
                 if self._public_attempts < 2:
                     self._public_attempts += 1
+                    self.used_public_fallback = True
                     warnings: list[str] = []
                     try:
                         for job in public_linkedin_jobs(

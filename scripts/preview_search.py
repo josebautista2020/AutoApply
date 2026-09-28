@@ -39,7 +39,10 @@ def _preview_entry(job: RawJob, config: AppConfig) -> dict:
     }
 
 
-def preview_jobs(config: AppConfig, page, platforms: list[str], limit: int) -> list[dict]:
+def preview_jobs(
+    config: AppConfig, page, platforms: list[str], limit: int,
+    source_info: list[str] | None = None,
+) -> list[dict]:
     """Use the production searchers and scorer, stopping after ``limit`` jobs."""
     # SearchCriteria is a Pydantic model; runtime limits belong on a copy.
     criteria = SimpleNamespace(
@@ -51,7 +54,10 @@ def preview_jobs(config: AppConfig, page, platforms: list[str], limit: int) -> l
     results: list[dict] = []
     seen: set[tuple[str, str]] = set()
     for platform in platforms:
-        for job in SEARCHERS[platform]().search(criteria, page=page):
+        searcher = SEARCHERS[platform]()
+        for job in searcher.search(criteria, page=page):
+            if source_info is not None and getattr(searcher, "used_public_fallback", False):
+                source_info.append("public_html_fallback")
             key = (job.platform, job.external_id)
             if key in seen:
                 continue
@@ -111,10 +117,15 @@ def main() -> int:
             parser.exit(2, f"Public LinkedIn preview failed: {exc}\n")
     else:
         browser = BrowserManager(config)
+        source_info: list[str] = []
         try:
-            jobs = preview_jobs(config, browser.get_page(), platforms, args.limit)
+            jobs = preview_jobs(config, browser.get_page(), platforms, args.limit,
+                                source_info=source_info)
         finally:
             browser.close()
+        if source_info:
+            source = source_info[0]
+            warnings.append("Browser cards could not be opened; using public LinkedIn HTML")
         if not jobs and platforms == ["linkedin"] and args.country and args.title:
             warnings.append("Browser extraction returned no jobs; trying public LinkedIn HTML")
             source = "public_html_fallback"

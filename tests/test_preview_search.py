@@ -45,6 +45,27 @@ def test_preview_uses_real_scorer_deduplicates_and_limits_results():
     assert results[1]["reason"] == "Country not confirmed in job location"
 
 
+def test_preview_marks_public_fallback_source():
+    config = MagicMock()
+    config.search_criteria = SearchCriteria(
+        job_titles=["Director of Engineering"], locations=["Remote"],
+        target_countries=["Colombia"], executive_mode=True,
+    )
+    config.bot.min_match_score = 70
+    config.company_blacklist = []
+
+    class Searcher:
+        def search(self, criteria, page):
+            self.used_public_fallback = True
+            yield _job("one", "Bogota, Colombia")
+
+    sources = []
+    with patch("scripts.preview_search.SEARCHERS", {"linkedin": Searcher}):
+        jobs = preview_jobs(config, MagicMock(), ["linkedin"], 1, source_info=sources)
+    assert len(jobs) == 1
+    assert sources == ["public_html_fallback"]
+
+
 def test_preview_cli_scopes_country_and_title_without_application(tmp_path, capsys):
     path = tmp_path / "config.json"
     path.write_text(json.dumps({
