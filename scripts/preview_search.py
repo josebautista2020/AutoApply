@@ -160,6 +160,7 @@ def main() -> int:
     # the review approval gate, an applier, or the application database.
     platforms = args.platform or ["linkedin"]
     warnings: list[str] = []
+    source = "public_html" if args.public_html else "browser"
     if args.public_html:
         if platforms != ["linkedin"] or not args.country or not args.title:
             parser.error("--public-html requires --platform linkedin, --country and --title")
@@ -177,9 +178,19 @@ def main() -> int:
             jobs = preview_jobs(config, browser.get_page(), platforms, args.limit)
         finally:
             browser.close()
+        if not jobs and platforms == ["linkedin"] and args.country and args.title:
+            warnings.append("Browser extraction returned no jobs; trying public LinkedIn HTML")
+            source = "public_html_fallback"
+            try:
+                jobs = [_preview_entry(job, config) for job in public_linkedin_jobs(
+                    args.title, args.country, min(args.limit, 5), warnings
+                )]
+            except Exception as exc:
+                warnings.append(f"Public LinkedIn fallback failed: {exc}")
     print(json.dumps({
         "jobs": jobs,
         "count": len(jobs),
+        "source": source,
         "scope": {"countries": config.search_criteria.target_countries,
                   "titles": config.search_criteria.job_titles,
                   "platforms": platforms},

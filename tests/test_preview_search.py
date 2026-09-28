@@ -62,7 +62,8 @@ def test_preview_cli_scopes_country_and_title_without_application(tmp_path, caps
     args = ["preview_search.py", "--config", str(path), "--country", "Colombia",
             "--title", "Director de Ingeniería", "--limit", "2"]
     with patch.object(sys, "argv", args), patch("scripts.preview_search.BrowserManager") as browser:
-        with patch("scripts.preview_search.preview_jobs", return_value=[]) as preview:
+        with patch("scripts.preview_search.preview_jobs", return_value=[]) as preview, \
+             patch("scripts.preview_search.public_linkedin_jobs", return_value=[]):
             assert main() == 0
     scoped = preview.call_args.args[0]
     assert scoped.search_criteria.target_countries == ["Colombia"]
@@ -71,6 +72,29 @@ def test_preview_cli_scopes_country_and_title_without_application(tmp_path, caps
     assert preview.call_args.args[-1] == 2
     assert browser.return_value.close.called
     assert "Empty results do not confirm" in capsys.readouterr().out
+
+
+def test_browser_preview_falls_back_to_public_html(tmp_path, capsys):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({
+        "profile": {"first_name": "Jane", "last_name": "Doe", "email": "jane@example.com",
+                    "phone": "5550100", "city": "Bogota", "bio": "Architect"},
+        "search_criteria": {"job_titles": ["Director of Engineering"],
+                            "locations": ["Remote"], "target_countries": ["Colombia"]},
+    }), encoding="utf-8")
+    args = ["preview_search.py", "--config", str(path), "--country", "Colombia",
+            "--title", "Director of Engineering", "--limit", "3"]
+    with patch.object(sys, "argv", args), \
+         patch("scripts.preview_search.BrowserManager"), \
+         patch("scripts.preview_search.preview_jobs", return_value=[]), \
+         patch("scripts.preview_search.public_linkedin_jobs", return_value=[
+             _job("one", "Bogota, Colombia")]) as public:
+        assert main() == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["source"] == "public_html_fallback"
+    assert result["count"] == 1
+    assert "Browser extraction returned no jobs" in result["warnings"][0]
+    public.assert_called_once()
 
 
 def test_public_html_preview_reads_cards_and_stops_at_rate_limit():
