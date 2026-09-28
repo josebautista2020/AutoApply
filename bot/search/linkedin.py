@@ -93,7 +93,8 @@ class LinkedInSearcher(BaseSearcher):
         found = 0
         page_num = 0
 
-        while found < remaining and page_num < 10:
+        max_pages = getattr(criteria, "max_pages_per_search", 10)
+        while found < remaining and page_num < max_pages:
             job_cards = page.query_selector_all(
                 ".jobs-search-results__list-item, "
                 ".job-card-container, "
@@ -107,7 +108,8 @@ class LinkedInSearcher(BaseSearcher):
 
             # Limit work when cards cannot be opened (auth walls/overlays). A
             # preview requesting a few jobs must not wait on every card.
-            for card in job_cards[:min(len(job_cards), max(10, remaining * 3))]:
+            card_limit = getattr(criteria, "max_cards_per_page", max(10, remaining * 3))
+            for card in job_cards[:min(len(job_cards), card_limit)]:
                 if found >= remaining:
                     return
 

@@ -11,6 +11,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from urllib.parse import urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -41,11 +42,17 @@ def _preview_entry(job: RawJob, config: AppConfig) -> dict:
 
 def preview_jobs(config: AppConfig, page, platforms: list[str], limit: int) -> list[dict]:
     """Use the production searchers and scorer, stopping after ``limit`` jobs."""
-    config.search_criteria.max_results_per_search = limit
+    # SearchCriteria is a Pydantic model; runtime limits belong on a copy.
+    criteria = SimpleNamespace(
+        **config.search_criteria.model_dump(),
+        max_results_per_search=limit,
+        max_pages_per_search=1,
+        max_cards_per_page=min(limit * 2, 10),
+    )
     results: list[dict] = []
     seen: set[tuple[str, str]] = set()
     for platform in platforms:
-        for job in SEARCHERS[platform]().search(config.search_criteria, page=page):
+        for job in SEARCHERS[platform]().search(criteria, page=page):
             key = (job.platform, job.external_id)
             if key in seen:
                 continue
