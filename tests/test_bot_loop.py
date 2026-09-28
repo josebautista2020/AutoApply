@@ -630,6 +630,32 @@ class TestRunBotReviewMode:
     @patch("bot.bot.time.sleep")
     @patch("bot.bot._save_job_description", return_value=None)
     @patch("bot.bot._generate_docs")
+    @patch("bot.bot._wait_for_review", return_value=("skip", None))
+    @patch("bot.bot._apply_to_job")
+    @patch("bot.bot.score_job")
+    @patch("bot.bot.BrowserManager")
+    def test_country_target_forces_review_even_in_full_auto(
+        self, mock_bm, mock_score, mock_apply, mock_review,
+        mock_gen, mock_save_jd, mock_sleep,
+    ):
+        from bot.bot import run_bot
+
+        raw = FakeRawJob(location="Madrid, Spain")
+        mock_score.return_value = _make_scored(raw=raw)
+        mock_gen.return_value = ("/r.pdf", "/cl.txt", "cover", None)
+        state, searcher_cls = self._make_review_setup([raw])
+        config = _make_config(apply_mode="full_auto")
+        config.search_criteria.target_countries = ["Spain"]
+
+        with patch("bot.bot.SEARCHERS", {"linkedin": searcher_cls}):
+            run_bot(state, config, MagicMock())
+
+        mock_review.assert_called_once()
+        mock_apply.assert_not_called()
+
+    @patch("bot.bot.time.sleep")
+    @patch("bot.bot._save_job_description", return_value=None)
+    @patch("bot.bot._generate_docs")
     @patch("bot.bot._wait_for_review")
     @patch("bot.bot._apply_to_job")
     @patch("bot.bot._save_application")

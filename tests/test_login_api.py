@@ -17,6 +17,9 @@ from db.database import Database
 @pytest.fixture
 def app_client(tmp_path, monkeypatch):
     """Yield (test_client, tmp_path) with paths redirected to tmp_path."""
+    from core.i18n import set_locale
+
+    set_locale("en")
     monkeypatch.setattr("config.settings.get_data_dir", lambda: tmp_path)
     monkeypatch.setattr("app.get_data_dir", lambda: tmp_path)
     monkeypatch.setattr("routes.profile.get_data_dir", lambda: tmp_path)

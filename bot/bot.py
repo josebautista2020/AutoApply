@@ -165,7 +165,9 @@ def run_bot(
                         )
 
                         # Review gate — pause for user approval in review/watch modes
-                        if config.bot.apply_mode in ("review", "watch"):
+                        targets = getattr(config.search_criteria, "target_countries", None)
+                        international_review = isinstance(targets, list) and bool(targets)
+                        if config.bot.apply_mode in ("review", "watch") or international_review:
                             emit(
                                 "REVIEW",
                                 job_title=raw_job.title,
@@ -174,6 +176,8 @@ def run_bot(
                                 match_score=scored.score,
                                 cover_letter=cover_letter_text,
                                 apply_url=raw_job.apply_url,
+                                eligibility_note=scored.eligibility_note,
+                                priority_reasons=scored.priority_reasons,
                                 message=f"Review: {raw_job.title} at {raw_job.company} (score {scored.score})",
                             )
 

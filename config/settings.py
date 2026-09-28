@@ -9,8 +9,9 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
+from typing import Literal
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 _logger = logging.getLogger(__name__)
 
@@ -106,6 +107,29 @@ class SearchCriteria(BaseModel):
     keywords_include: list[str] = []
     keywords_exclude: list[str] = []
     experience_levels: list[str] = ["mid", "senior"]
+    # Opt-in international search. Each country is queried separately; a listing
+    # must name one of these countries before it can enter the review queue.
+    target_countries: list[str] = []
+    # Opt-in ranking for senior leadership and architecture roles. Vacancies
+    # receive points for signals in the posting, not for assumed CV claims.
+    executive_mode: bool = False
+    # Applicant's status for each target country. Unknown is intentionally the
+    # default; the location of a vacancy is not proof of work eligibility.
+    work_authorization: dict[
+        str, Literal["authorized", "needs_sponsorship", "unknown"]
+    ] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _avoid_cross_currency_salary_comparison(self):
+        if self.target_countries and self.salary_min is not None:
+            raise ValueError(
+                "salary_min cannot be used with target_countries: "
+                "cross-currency salary comparison is unsupported"
+            )
+        unknown_countries = set(self.work_authorization) - set(self.target_countries)
+        if unknown_countries:
+            raise ValueError("work_authorization countries must be in target_countries")
+        return self
 
 
 class ScheduleConfig(BaseModel):
@@ -124,7 +148,7 @@ class LLMConfig(BaseModel):
 class ResumeReuseConfig(BaseModel):
     """Configuration for smart resume reuse via Knowledge Base assembly."""
     enabled: bool = True
-    min_score: float = 0.0
+    min_score: float = 0.60
     min_experience_bullets: int = 6
     scoring_method: str = "auto"  # "tfidf" | "onnx" | "auto"
     cover_letter_strategy: str = "generate"  # "generate" | "template"

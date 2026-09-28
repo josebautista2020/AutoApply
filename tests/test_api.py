@@ -15,6 +15,7 @@ Requirement traceability:
 from __future__ import annotations
 
 import json
+from unittest.mock import patch
 
 import pytest
 
@@ -777,13 +778,14 @@ class TestHealth:
 class TestShutdown:
     """Validates FR-026: POST /api/shutdown for graceful termination."""
 
-    def test_shutdown_returns_shutting_down(self, app_client, monkeypatch):
+    def test_shutdown_returns_shutting_down(self, app_client):
         """AC-026-1: POST /api/shutdown from localhost returns shutting_down."""
         client, _db, _tmp = app_client
-        # Prevent actual shutdown by monkeypatching os.kill
-        monkeypatch.setattr("app.os.kill", lambda pid, sig: None)
-        monkeypatch.setattr("routes.lifecycle.os.kill", lambda pid, sig: None)
-        resp = client.post("/api/shutdown")
+        # Do not start the delayed shutdown thread: a mock of os.kill can be
+        # restored before that thread wakes and would terminate pytest.
+        with patch("routes.lifecycle.threading.Thread") as thread:
+            resp = client.post("/api/shutdown")
+        thread.return_value.start.assert_called_once_with()
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["status"] == "shutting_down"
