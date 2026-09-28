@@ -131,6 +131,18 @@ _DIGITAL_SCOPE = re.compile(
     r"digital|data center|information technology|infraestructura tecnologica|"
     r"enterprise architecture|arquitectura empresarial)\b"
 )
+_INDUSTRIAL_SCOPE = re.compile(
+    r"\b(?:capex|manufactura|manufacturing|mantenimiento|maintenance|"
+    r"empaque|packaging|frio industrial|plantas? industriales?|"
+    r"inversion industrial|ingenieria industrial|cpg|fmcg)\b"
+)
+_CORE_DIGITAL_SCOPE = re.compile(
+    r"\b(?:cloud|nube|saas|kubernetes|devops|microservices|microservicios|"
+    r"cybersecurity|ciberseguridad|data center|information technology|"
+    r"infraestructura tecnologica|enterprise architecture|arquitectura empresarial|"
+    r"software engineering|ingenieria de software|software development|"
+    r"desarrollo de software|digital transformation|transformacion digital)\b"
+)
 
 
 def _fold_accents(value: str) -> str:
@@ -277,7 +289,14 @@ def score_job(
         passed = score >= threshold
         digital_scope = (_DIGITAL_SCOPE.search(_fold_accents(raw_job.description)) or
                          re.search(r"\b(?:IT|TI)\b", raw_job.description))
-        if passed and not digital_scope:
+        folded_description = _fold_accents(raw_job.description)
+        industrial_only = (_INDUSTRIAL_SCOPE.search(folded_description) and
+                           not _CORE_DIGITAL_SCOPE.search(folded_description) and
+                           not _CORE_DIGITAL_SCOPE.search(_fold_accents(raw_job.title)))
+        if passed and industrial_only:
+            passed = False
+            skip_reason = "Primarily industrial CAPEX/manufacturing scope"
+        elif passed and not digital_scope:
             passed = False
             skip_reason = "No explicit software/cloud/IT scope in job description"
         else:

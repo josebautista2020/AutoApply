@@ -196,7 +196,35 @@ def test_executive_industrial_engineering_scope_stays_out_of_review():
     result = score_job(job, cfg)
     assert result.score >= 70
     assert not result.pass_filter
-    assert result.skip_reason == "No explicit software/cloud/IT scope in job description"
+    assert result.skip_reason == "Primarily industrial CAPEX/manufacturing scope"
+
+
+def test_project_management_software_does_not_turn_industrial_capex_role_into_it():
+    cfg = _config(["Colombia"])
+    cfg.search_criteria.executive_mode = True
+    cfg.search_criteria.job_titles = ["Director de Ingeniería"]
+    job = _job("Medellín, Colombia")
+    job.title = "Director(a) de Ingeniería y Gestión de Proyectos"
+    job.description = (
+        "Liderar equipos, presupuesto y gobierno del portafolio CAPEX de manufactura. "
+        "Gestionar líneas de empaque, frío industrial, equipos y seguridad. "
+        "Adoptar una plataforma de software PPM para seguimiento de proyectos."
+    )
+    result = score_job(job, cfg)
+    assert result.score >= 70
+    assert not result.pass_filter
+    assert result.skip_reason == "Primarily industrial CAPEX/manufacturing scope"
+
+
+def test_manufacturing_company_cloud_leadership_still_qualifies():
+    cfg = _config(["Colombia"])
+    cfg.search_criteria.executive_mode = True
+    job = _job("Bogotá, Colombia")
+    job.description = (
+        "Lead teams and strategy for cloud platform architecture and DevOps "
+        "across manufacturing operations."
+    )
+    assert score_job(job, cfg).pass_filter
 
 
 def test_country_target_does_not_confuse_panama_city_with_country():
