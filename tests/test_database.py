@@ -154,6 +154,57 @@ class TestUpdateStatus:
         assert after.updated_at >= before.updated_at
 
 
+    def test_older_event_does_not_overwrite_newer_status(self, db: Database):
+        row_id = insert_sample(db)
+        db.update_status(
+            row_id, "rejected", occurred_at="2026-10-06 12:00:00",
+            source="gmail", evidence_id="gmail:new",
+        )
+        db.update_status(
+            row_id, "applied", occurred_at="2026-10-05 12:00:00",
+            source="linkedin", evidence_id="linkedin:old",
+        )
+        assert db.get_application(row_id).status == "rejected"
+
+    def test_same_timestamp_uses_status_priority(self, db: Database):
+        row_id = insert_sample(db)
+        timestamp = "2026-10-06 12:00:00"
+        db.update_status(row_id, "applied", occurred_at=timestamp, source="portal", evidence_id="a")
+        db.update_status(row_id, "rejected", occurred_at=timestamp, source="gmail", evidence_id="b")
+        assert db.get_application(row_id).status == "rejected"
+
+    def test_evidence_import_is_idempotent(self, db: Database):
+        row_id = insert_sample(db)
+        first = db.record_status_event(
+            row_id, "under_review", occurred_at="2026-10-06 12:00:00",
+            source="gmail", evidence_id="gmail:123",
+        )
+        second = db.record_status_event(
+            row_id, "under_review", occurred_at="2026-10-06 12:00:00",
+            source="gmail", evidence_id="gmail:123",
+        )
+        assert first is True
+        assert second is False
+        history = [
+            e for e in db.get_status_history(row_id)
+            if e["evidence_id"] == "gmail:123"
+        ]
+        assert len(history) == 1
+
+    def test_status_history_keeps_evidence(self, db: Database):
+        row_id = insert_sample(db)
+        db.update_status(
+            row_id, "interview", notes="Recruiter screen",
+            occurred_at="2026-10-06 13:00:00",
+            source="gmail", evidence_id="gmail:screen",
+        )
+        history = db.get_status_history(row_id)
+        assert history[0]["status"] == "interview"
+        assert history[0]["source"] == "gmail"
+        assert history[0]["evidence_id"] == "gmail:screen"
+        assert history[0]["notes"] == "Recruiter screen"
+
+
 # ---------------------------------------------------------------------------
 # get_all_applications tests
 # ---------------------------------------------------------------------------
