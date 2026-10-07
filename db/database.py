@@ -37,6 +37,22 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_dedup ON applications(external_id, platfor
 CREATE INDEX IF NOT EXISTS idx_status ON applications(status);
 CREATE INDEX IF NOT EXISTS idx_applied_at ON applications(applied_at);
 
+CREATE TABLE IF NOT EXISTS application_status_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    application_id INTEGER NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+    status TEXT NOT NULL,
+    occurred_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    source TEXT NOT NULL DEFAULT 'manual',
+    evidence_id TEXT,
+    notes TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_status_event_evidence
+    ON application_status_events(application_id, source, evidence_id)
+    WHERE evidence_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_status_event_order
+    ON application_status_events(application_id, occurred_at DESC, id DESC);
+
 CREATE TABLE IF NOT EXISTS feed_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     event_type TEXT NOT NULL,
@@ -226,6 +242,21 @@ class Database:
                 "ALTER TABLE roles ADD COLUMN location TEXT"
             )
 
+        # Seed one historical event for legacy rows.  This is idempotent and
+        # makes the event log authoritative without losing existing status.
+        conn.execute(
+            """
+            INSERT INTO application_status_events
+                (application_id, status, occurred_at, source, evidence_id, notes)
+            SELECT a.id, a.status, a.updated_at, 'legacy', 'legacy:' || a.id, a.notes
+            FROM applications a
+            WHERE NOT EXISTS (
+                SELECT 1 FROM application_status_events e
+                WHERE e.application_id = a.id
+            )
+            """
+        )
+
     def save_application(
         self,
         external_id: str,
@@ -260,16 +291,120 @@ class Database:
             )
             return cursor.lastrowid  # type: ignore[return-value]
 
-    def update_status(self, application_id: int, status: str, notes: str | None = None) -> None:
+    _STATUS_PRIORITY = {
+        "rejected": 100,
+        "closed": 95,
+        "withdrawn": 90,
+        "offer": 80,
+        "interview": 70,
+        "interviewed": 70,
+        "next_step": 65,
+        "under_review": 55,
+        "review": 55,
+        "applied": 40,
+        "submitted": 40,
+        "incomplete": 30,
+        "blocked": 25,
+        "discovered": 10,
+    }
+
+    def record_status_event(
+        self,
+        application_id: int,
+        status: str,
+        notes: str | None = None,
+        *,
+        occurred_at: str | None = None,
+        source: str = "manual",
+        evidence_id: str | None = None,
+    ) -> bool:
+        """Persist status evidence and recompute the effective application state.
+
+        Chronology is authoritative: the newest occurred_at wins.  Priority is
+        used only when two events have the same occurred_at.  evidence_id makes
+        imports (for example Gmail receipts) idempotent.
+
+        Returns True when a new event was inserted, False for a duplicate.
+        """
         with self._connect() as conn:
+            exists = conn.execute(
+                "SELECT 1 FROM applications WHERE id = ?", (application_id,)
+            ).fetchone()
+            if exists is None:
+                raise ValueError(f"Application {application_id} does not exist")
+
+            cursor = conn.execute(
+                """
+                INSERT OR IGNORE INTO application_status_events
+                    (application_id, status, occurred_at, source, evidence_id, notes)
+                VALUES (?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?)
+                """,
+                (application_id, status, occurred_at, source, evidence_id, notes),
+            )
+            inserted = cursor.rowcount > 0
+
+            events = conn.execute(
+                """
+                SELECT id, status, occurred_at, notes
+                FROM application_status_events
+                WHERE application_id = ?
+                ORDER BY datetime(occurred_at) DESC, id DESC
+                """,
+                (application_id,),
+            ).fetchall()
+            if not events:
+                return inserted
+
+            newest_time = events[0]["occurred_at"]
+            tied = [e for e in events if e["occurred_at"] == newest_time]
+            winner = max(
+                tied,
+                key=lambda e: (self._STATUS_PRIORITY.get(e["status"], 0), e["id"]),
+            )
             conn.execute(
                 """
                 UPDATE applications
-                SET status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+                SET status = ?, notes = ?, updated_at = ?
                 WHERE id = ?
                 """,
-                (status, notes, application_id),
+                (winner["status"], winner["notes"], winner["occurred_at"], application_id),
             )
+            return inserted
+
+    def update_status(
+        self,
+        application_id: int,
+        status: str,
+        notes: str | None = None,
+        *,
+        occurred_at: str | None = None,
+        source: str = "manual",
+        evidence_id: str | None = None,
+    ) -> None:
+        """Backward-compatible status update backed by immutable events."""
+        self.record_status_event(
+            application_id,
+            status,
+            notes,
+            occurred_at=occurred_at,
+            source=source,
+            evidence_id=evidence_id,
+        )
+
+    def get_status_history(self, application_id: int) -> list[dict]:
+        """Return status evidence newest-first for audit/debugging."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT id, application_id, status, occurred_at, source,
+                       evidence_id, notes, created_at
+                FROM application_status_events
+                WHERE application_id = ?
+                ORDER BY datetime(occurred_at) DESC, id DESC
+                """,
+                (application_id,),
+            ).fetchall()
+            return [dict(row) for row in rows]
 
     def get_all_applications(
         self,
